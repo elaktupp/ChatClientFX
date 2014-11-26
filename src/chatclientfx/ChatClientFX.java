@@ -33,12 +33,14 @@ public class ChatClientFX extends Application {
         backThread.setDaemon(true);
         backThread.start(); // this will eventually call backEnd's run()
         
+        stage.show();        
+        
         // TESTING
         ChatMessage msg = new ChatMessage();
         msg.setChatMessage("Hello there!");
         backEnd.sendMessage(msg);
         
-        stage.show();
+
     }
 
     /**
