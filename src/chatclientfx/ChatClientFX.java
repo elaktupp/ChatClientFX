@@ -26,21 +26,13 @@ public class ChatClientFX extends Application {
         
         stage.setScene(scene);
         
-        ClientBackEnd backEnd = new ClientBackEnd();
-        Thread backThread = new Thread(backEnd);
-        // Tell JVM this is background thread,
-        // so JVM can kill at exit.
-        backThread.setDaemon(true);
-        backThread.start(); // this will eventually call backEnd's run()
+        stage.show();
         
-        stage.show();        
-        
-        // TESTING
-        ChatMessage msg = new ChatMessage();
-        msg.setChatMessage("Hello there!");
-        backEnd.sendMessage(msg);
-        
-
+        // TESTING: This didn't work when it was sent before stage.show()
+        // but in some machines it did work even then... weird.
+//        ChatMessage msg = new ChatMessage();
+//        msg.setChatMessage("Hello there!");
+//        backEnd.sendMessage(msg);
     }
 
     /**
