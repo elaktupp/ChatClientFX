@@ -77,6 +77,17 @@ public class FXMLDocumentController implements Initializable {
             chatMessage.requestFocus();
         }
     }
+
+    @FXML
+    private void connectOnKeyReleased(KeyEvent event) {
+        if (event.getCode() == KeyCode.ENTER) {
+            if (userName.getText().isEmpty() == false) {
+                userName.setDisable(true);
+                chatMessage.setDisable(false);
+                chatMessage.requestFocus();
+            }
+        }
+    }
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
