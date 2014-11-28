@@ -6,11 +6,9 @@
 package chatclientfx;
 
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.ResourceBundle;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -20,8 +18,11 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import message.ChatConnect;
+import message.ChatConnectResponse;
+import message.ChatDisconnect;
 import message.ChatMessage;
-import message.ChatUserList;
+import message.ChatUserListUpdate;
 
 /**
  *
@@ -31,6 +32,8 @@ public class FXMLDocumentController implements Initializable {
     
     private ClientBackEnd backEnd;
     private Thread backThread;
+    private boolean connected;
+    private String connectedUser;
     
     @FXML
     private TextField chatMessage;
@@ -45,20 +48,15 @@ public class FXMLDocumentController implements Initializable {
     private Button buttonConnect;
     
     @FXML
-    private ListView userList;
+    private ListView userListArea;
     
     private ChatMessage createMessage() {
         ChatMessage msg = new ChatMessage();
         msg.setChatMessage(chatMessage.getText());
-        msg.setUserName((userName.getText().isEmpty())?("Anonymous"):(userName.getText()));
+        msg.setUserName(connectedUser);
         chatMessage.clear();
         return msg;
     }
-    
-//    @FXML
-//    private void sendChatMessage(ActionEvent event) {
-//        backEnd.sendMessage(createMessage());
-//    }
     
     @FXML
     private void sendMessageOnKeyReleased(KeyEvent event) {
@@ -70,29 +68,30 @@ public class FXMLDocumentController implements Initializable {
     }
     
     @FXML
-    private void handleConnect(ActionEvent event) {
-        if (userName.getText().isEmpty() == false) {
-            userName.setDisable(true);
-            chatMessage.setDisable(false);
-            chatMessage.requestFocus();
+    private void handleConnectButton(ActionEvent event) {
+
+        if (connected) {
+            setUiToDisconnectedState();
+            disconnectFromServer();
+        } else {
+            connectToServer();
         }
+
     }
 
     @FXML
     private void connectOnKeyReleased(KeyEvent event) {
         if (event.getCode() == KeyCode.ENTER) {
-            if (userName.getText().isEmpty() == false) {
-                userName.setDisable(true);
-                chatMessage.setDisable(false);
-                chatMessage.requestFocus();
-            }
+            connectToServer();
         }
     }
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
        
-        chatMessage.setDisable(true);
+        connected = false;
+        
+        setUiToDisconnectedState();
        
         // Move execution of requestFocus to UI thread.
         // This is needed because focus cannot be set
@@ -116,23 +115,64 @@ public class FXMLDocumentController implements Initializable {
     public void updateTextArea(ChatMessage msg) {
         chatMessageArea.appendText(msg.getUserName()+": "+
                 msg.getChatMessage()+"\n");
+    }
+    
+    public void updateUserListArea(ChatUserListUpdate msg) {
         
+        userListArea.setItems(FXCollections.observableArrayList(msg.getUserList()));
+
+    }
+    
+    public void updateConnection(ChatConnectResponse msg) {
+
+        setUiToConnectedState();
         
-        // HACK
-        updateUsersArea(null);
+        if (msg.isNameChanged()) {
+            showSystemMessage("Your user name "+userName.getText()+
+                    " changed to "+msg.getUserName());
+        }
+        connectedUser = msg.getUserName();
+
+    }
+    
+    public void showSystemMessage(String msg) {
+        chatMessageArea.appendText("[SYSTEM]: "+msg+"\n");
     }
 
-    // HACK
-    ObservableList<String> arr = FXCollections.observableArrayList();
+    private void setUiToConnectedState() {
+        connected = true;
+        buttonConnect.setText("DISCONNECT");
+        userName.setDisable(true);
+        chatMessage.setDisable(false);
+    }
     
-    public void updateUsersArea(ChatUserList msg) {
-        
-        // HACK
-        arr.add("A");
-        arr.add("B");
-        arr.add("C");
-        
-        userList.setItems(arr);
+    private void setUiToDisconnectedState() {
+        connected = false;
+        buttonConnect.setText("CONNECT");
+        userName.clear();
+        userName.setDisable(false);
+        chatMessage.setDisable(true);
+    }
+    
+    private void connectToServer() {
+        if (connected == false) {
+            if (userName.getText().isEmpty() == false) {
+                userName.setDisable(true);
+                chatMessage.setDisable(false);
+                chatMessage.requestFocus();
 
+            ChatConnect msg = new ChatConnect();
+            msg.setUserName(userName.getText());
+
+            backEnd.sendMessage(msg); // CONNECT
+            }
+        }
+    }
+    
+    private void disconnectFromServer() {
+        if (connected == true) {
+            ChatDisconnect msg = new ChatDisconnect();
+            backEnd.sendMessage(msg); // DISCONNECT
+        }
     }
 }

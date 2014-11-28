@@ -24,7 +24,7 @@
                   </TextField>
                   <HBox prefHeight="100.0" prefWidth="200.0" spacing="10.0" BorderPane.alignment="CENTER">
                      <children>
-                        <Button fx:id="buttonConnect" mnemonicParsing="false" onAction="#handleConnect" text="CONNECT" />
+                        <Button fx:id="buttonConnect" mnemonicParsing="false" onAction="#handleConnectButton" text="CONNECT" />
                         <TextField fx:id="userName" onKeyReleased="#connectOnKeyReleased" prefHeight="25.0" prefWidth="82.0" promptText="User name" />
                         <ColorPicker />
                         <ChoiceBox prefHeight="25.0" prefWidth="52.0" />
@@ -44,7 +44,7 @@
             </Label>
          </top>
          <right>
-            <ListView fx:id="userList" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+            <ListView fx:id="userListArea" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                <BorderPane.margin>
                   <Insets left="10.0" right="10.0" />
                </BorderPane.margin>
