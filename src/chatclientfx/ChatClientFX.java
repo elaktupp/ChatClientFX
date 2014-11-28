@@ -17,6 +17,8 @@ import javafx.stage.Stage;
  */
 public class ChatClientFX extends Application {
     
+    public static final boolean TESTING = true;
+    
     @Override
     public void start(Stage stage) throws Exception {
         Parent root = FXMLLoader.load(getClass().getResource("FXMLDocument.fxml"));

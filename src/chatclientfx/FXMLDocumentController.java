@@ -7,6 +7,8 @@ package chatclientfx;
 
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
@@ -36,13 +38,13 @@ public class FXMLDocumentController implements Initializable {
     private String connectedUser;
     
     @FXML
-    private TextField chatMessage;
+    private TextField chatMessageField;
     
     @FXML
     private TextArea chatMessageArea;
     
     @FXML
-    private TextField userName;
+    private TextField userNameField;
     
     @FXML
     private Button buttonConnect;
@@ -50,46 +52,13 @@ public class FXMLDocumentController implements Initializable {
     @FXML
     private ListView userListArea;
     
-    private ChatMessage createMessage() {
-        ChatMessage msg = new ChatMessage();
-        msg.setChatMessage(chatMessage.getText());
-        msg.setUserName(connectedUser);
-        chatMessage.clear();
-        return msg;
-    }
-    
-    @FXML
-    private void sendMessageOnKeyReleased(KeyEvent event) {
-        if (event.getCode() == KeyCode.ENTER) {
-            if (chatMessage.getText().isEmpty() == false) {
-                backEnd.sendMessage(createMessage());
-            }
-        }
-    }
-    
-    @FXML
-    private void handleConnectButton(ActionEvent event) {
-
-        if (connected) {
-            setUiToDisconnectedState();
-            disconnectFromServer();
-        } else {
-            connectToServer();
-        }
-
-    }
-
-    @FXML
-    private void connectOnKeyReleased(KeyEvent event) {
-        if (event.getCode() == KeyCode.ENTER) {
-            connectToServer();
-        }
-    }
-    
     @Override
     public void initialize(URL url, ResourceBundle rb) {
        
+        backEnd = null;
+        backThread = null;
         connected = false;
+        connectedUser = "";
         
         setUiToDisconnectedState();
        
@@ -99,80 +68,197 @@ public class FXMLDocumentController implements Initializable {
         Platform.runLater(new Runnable() {
             @Override
             public void run() {
-                userName.requestFocus();
+                userNameField.requestFocus();
             }
         });
         
-        backEnd = new ClientBackEnd(this); // creates connection
-        backThread = new Thread(backEnd);
-        // Tell JVM this is background thread, so JVM can kill when
-        // backEnd is destroyed.
-        backThread.setDaemon(true);
-        backThread.start(); // this will eventually call backEnd's run()
+        setUpClientBackEnd();
 
     }    
+   
+    @FXML
+    private void toggleConnectionOnButtonClick(ActionEvent event) {
+
+        if (connected) {
+            disconnectFromServer(); // first disconnect
+            setUiToDisconnectedState(); // then set UI
+        } else {
+            connectToServer();
+            // setUiToConnectedState gets called after response
+        }
+    }
+
+    @FXML
+    private void connectToServerOnEnterKeyReleased(KeyEvent event) {
+        
+        if (event.getCode() == KeyCode.ENTER) {
+            // No need to do extra checks since the userNameField
+            // gets disabled when connected.
+            connectToServer();
+        }
+    }
+
+    @FXML
+    private void sendMessageOnEnterKeyReleased(KeyEvent event) {
+        
+        if (event.getCode() == KeyCode.ENTER) {
+            String messageText = chatMessageField.getText();
+            if (messageText.isEmpty() == false) {
+                ChatMessage msg = new ChatMessage();
+                msg.setChatMessage(messageText);
+                msg.setUserName(connectedUser);
+                
+                // TODO
+                msg.setFontSize(12);
+                msg.setMessageColor("#000000");
+                msg.setIsPrivate(false);
+                msg.setPrivateName("");
+                
+                chatMessageField.clear();
+                
+                backEnd.sendMessage(msg);
+            }
+        }
+    }
     
-    public void updateTextArea(ChatMessage msg) {
+    /**
+     * Method for the client back end to update the UI view when the
+     * client gets new chat message.
+     * 
+     * @param msg ChatMessage contains the message text and sender name.
+     */
+    public void updateMessageArea(ChatMessage msg) {
+        
         chatMessageArea.appendText(msg.getUserName()+": "+
                 msg.getChatMessage()+"\n");
     }
     
+    /**
+     * Method for the client back end to update the UI view when the
+     * client gets updated list of connected clients from the server.
+     *  
+     * @param msg ChatUserListUpdate contains list of names
+     */
     public void updateUserListArea(ChatUserListUpdate msg) {
         
-        userListArea.setItems(FXCollections.observableArrayList(msg.getUserList()));
+        userListArea.setItems(FXCollections.
+                observableArrayList(msg.getUserList()));
 
     }
     
-    public void updateConnection(ChatConnectResponse msg) {
+    /**
+     * Method for the client back end to update the UI view when the
+     * client gets connected to the server.
+     * 
+     * @param msg ChatConnectResponse contains the validated user name.
+     */
+    public void updateToConnected(ChatConnectResponse msg) {
 
         setUiToConnectedState();
         
         if (msg.isNameChanged()) {
-            showSystemMessage("Your user name "+userName.getText()+
+            showSystemMessage("Your user name "+userNameField.getText()+
                     " changed to "+msg.getUserName());
         }
         connectedUser = msg.getUserName();
-
     }
     
+    /**
+     * Method for the client back end to update the UI view when the
+     * client gets disconnected from the server.
+     */
+    public void updateToDisconnected() {
+        
+        setUiToDisconnectedState();
+    }
+    
+    /**
+     * System message text is appended to the message area.
+     * 
+     * @param msg String containing the text to be shown.
+     */
     public void showSystemMessage(String msg) {
         chatMessageArea.appendText("[SYSTEM]: "+msg+"\n");
     }
-
+    
+    /**
+     * This prepares the connection to the server but actual communication
+     * requires user name to be sent to the server i.e. ChatConnect.
+     */
+    private void setUpClientBackEnd() {
+        
+        backEnd = new ClientBackEnd(this); // creates connection
+        backThread = new Thread(backEnd);
+        backThread.setName("Client BET");
+        // Tell JVM this is background thread, so JVM can kill when
+        // backEnd is destroyed.
+        backThread.setDaemon(true);
+        backThread.start(); // this will eventually call backEnd's run()
+    }
+    
+    /**
+     * Sets buttons and text fields after user has connected.
+     */
     private void setUiToConnectedState() {
+        
         connected = true;
         buttonConnect.setText("DISCONNECT");
-        userName.setDisable(true);
-        chatMessage.setDisable(false);
+        userNameField.setDisable(true);
+        chatMessageField.setDisable(false);
+        showSystemMessage("You are now connected to the server.");
     }
     
+    /**
+     * Sets buttons and text fields after user has disconnected.
+     */
     private void setUiToDisconnectedState() {
+        
         connected = false;
         buttonConnect.setText("CONNECT");
-        userName.clear();
-        userName.setDisable(false);
-        chatMessage.setDisable(true);
+        userNameField.clear();
+        userNameField.setDisable(false);
+        chatMessageField.setDisable(true);
+        showSystemMessage("You are now disconnected from the server.");
     }
     
+    /**
+     * ChatConnect message is created and sent to the server.
+     * 
+     * If the user name is empty or just whitespace characters
+     * the message is not sent.
+     */
     private void connectToServer() {
+        
         if (connected == false) {
-            if (userName.getText().isEmpty() == false) {
-                userName.setDisable(true);
-                chatMessage.setDisable(false);
-                chatMessage.requestFocus();
+           if (userNameField.getText().isEmpty() == false &&
+               userNameField.getText().trim().isEmpty() == false) {
+                userNameField.setDisable(true);
+                chatMessageField.setDisable(false);
+                chatMessageField.requestFocus();
 
-            ChatConnect msg = new ChatConnect();
-            msg.setUserName(userName.getText());
+                ChatConnect msg = new ChatConnect();
+                msg.setUserName(userNameField.getText());
 
-            backEnd.sendMessage(msg); // CONNECT
+                backEnd.sendMessage(msg); // CONNECT
             }
         }
     }
     
+    /**
+     * ChatDisconnect message is created and sent to the server.
+     * 
+     * Old client back end is shutdown and new perliminary connection
+     * is created, ready for new ChatConnect message.
+     */
     private void disconnectFromServer() {
+        
         if (connected == true) {
             ChatDisconnect msg = new ChatDisconnect();
             backEnd.sendMessage(msg); // DISCONNECT
         }
+        backEnd.shutdown();
+        
+        // Preliminary connection, ChatConnect still needed
+        setUpClientBackEnd();
     }
 }
