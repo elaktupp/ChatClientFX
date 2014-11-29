@@ -12,7 +12,7 @@
    <children>
       <BorderPane prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <center>
-            <TextArea fx:id="chatMessageArea" editable="false" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+            <TextArea fx:id="chatMessageArea" editable="false" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" wrapText="true" BorderPane.alignment="CENTER">
                <BorderPane.margin>
                   <Insets left="10.0" right="5.0" />
                </BorderPane.margin></TextArea>
@@ -20,15 +20,35 @@
          <bottom>
             <VBox spacing="10.0">
                <children>
-                  <TextField fx:id="chatMessageField" onKeyReleased="#sendMessageOnEnterKeyReleased" promptText="Message text + Enter to send">
-                     <font>
-                        <Font size="14.0" />
-                     </font>
-                  </TextField>
+                  <HBox spacing="10.0">
+                     <children>
+                        <TextField fx:id="chatMessageField" onKeyReleased="#sendMessageOnEnterKeyReleased" prefHeight="30.0" prefWidth="410.0" promptText="Message text + Enter to send">
+                           <font>
+                              <Font size="14.0" />
+                           </font>
+                        </TextField>
+                        <Label fx:id="sendToLabel" focusTraversable="false" text="TO ALL">
+                           <font>
+                              <Font size="14.0" />
+                           </font>
+                           <HBox.margin>
+                              <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                           </HBox.margin>
+                        </Label>
+                        <Label fx:id="sendToNameLabel" focusTraversable="false" onMouseClicked="#clearSendToNameField">
+                           <font>
+                              <Font size="14.0" />
+                           </font>
+                           <HBox.margin>
+                              <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                           </HBox.margin>
+                        </Label>
+                     </children>
+                  </HBox>
                   <HBox prefHeight="100.0" prefWidth="200.0" spacing="10.0" BorderPane.alignment="CENTER">
                      <children>
                         <Button fx:id="buttonConnect" mnemonicParsing="false" onAction="#toggleConnectionOnButtonClick" prefHeight="25.0" prefWidth="100.0" text="CONNECT" />
-                        <TextField fx:id="userNameField" onKeyReleased="#connectToServerOnEnterKeyReleased" prefHeight="25.0" prefWidth="82.0" promptText="User name" />
+                        <TextField fx:id="userNameField" onKeyReleased="#connectToServerOnEnterKeyReleased" prefHeight="25.0" prefWidth="160.0" promptText="User name (max. 20 chars)" />
                         <ColorPicker />
                         <ChoiceBox prefHeight="25.0" prefWidth="52.0" />
                      </children>
@@ -47,7 +67,7 @@
             </Label>
          </top>
          <right>
-            <ListView fx:id="userListArea" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+            <ListView fx:id="userListArea" onMouseClicked="#handleSelectionFromUserList" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                <BorderPane.margin>
                   <Insets left="5.0" right="10.0" />
                </BorderPane.margin>

@@ -7,19 +7,20 @@ package chatclientfx;
 
 import java.net.URL;
 import java.util.ResourceBundle;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 import message.ChatConnect;
 import message.ChatConnectResponse;
 import message.ChatDisconnect;
@@ -36,6 +37,7 @@ public class FXMLDocumentController implements Initializable {
     private Thread backThread;
     private boolean connected;
     private String connectedUser;
+    private boolean privateMessage;
     
     @FXML
     private TextField chatMessageField;
@@ -47,10 +49,37 @@ public class FXMLDocumentController implements Initializable {
     private TextField userNameField;
     
     @FXML
+    private Label sendToLabel;
+    
+    @FXML
+    private Label sendToNameLabel;
+    
+    @FXML
     private Button buttonConnect;
     
     @FXML
     private ListView userListArea;
+    
+    @FXML
+    public void handleSelectionFromUserList(MouseEvent event) {
+      
+        sendToLabel.setText("TO");
+        
+        String name = (String)userListArea.getSelectionModel().getSelectedItem();
+        
+        sendToNameLabel.setText(name);
+        
+        userListArea.getSelectionModel().clearSelection();
+        privateMessage = true;
+    }
+    
+    @FXML
+    public void clearSendToNameField(MouseEvent event) {
+        
+        sendToLabel.setText("TO ALL");
+        sendToNameLabel.setText("");
+        privateMessage = false;
+    }
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -59,6 +88,9 @@ public class FXMLDocumentController implements Initializable {
         backThread = null;
         connected = false;
         connectedUser = "";
+        privateMessage = false;
+        
+        userListArea.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
         
         setUiToDisconnectedState();
        
@@ -107,12 +139,13 @@ public class FXMLDocumentController implements Initializable {
                 ChatMessage msg = new ChatMessage();
                 msg.setChatMessage(messageText);
                 msg.setUserName(connectedUser);
+
+                msg.setIsPrivate(privateMessage);
+                msg.setPrivateName(sendToNameLabel.getText());
                 
                 // TODO
                 msg.setFontSize(12);
                 msg.setMessageColor("#000000");
-                msg.setIsPrivate(false);
-                msg.setPrivateName("");
                 
                 chatMessageField.clear();
                 
@@ -231,7 +264,9 @@ public class FXMLDocumentController implements Initializable {
         
         if (connected == false) {
            if (userNameField.getText().isEmpty() == false &&
-               userNameField.getText().trim().isEmpty() == false) {
+               userNameField.getText().trim().isEmpty() == false &&
+               userNameField.getText().length() <= 20) {
+                // Acceptable user name
                 userNameField.setDisable(true);
                 chatMessageField.setDisable(false);
                 chatMessageField.requestFocus();
@@ -240,7 +275,11 @@ public class FXMLDocumentController implements Initializable {
                 msg.setUserName(userNameField.getText());
 
                 backEnd.sendMessage(msg); // CONNECT
-            }
+            } else {
+               showSystemMessage("Check your user name! It is either empty"+
+                       " or longer than 20 characters.");
+               userNameField.requestFocus();
+           }
         }
     }
     
