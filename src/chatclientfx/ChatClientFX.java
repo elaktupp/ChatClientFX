@@ -21,12 +21,17 @@ public class ChatClientFX extends Application {
     
     @Override
     public void start(Stage stage) throws Exception {
+        
         Parent root = FXMLLoader.load(getClass().getResource("FXMLDocument.fxml"));
         Scene scene = new Scene(root);
         stage.setScene(scene);
         stage.show();
-    }
 
+// PROBLEM: Yes we can get the window exit here, but hot to tell that
+// to the FXMLDocumentController so it can shutdown properyl at the exit?
+        
+    }
+    
     /**
      * @param args the command line arguments
      */

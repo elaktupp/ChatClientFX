@@ -5,22 +5,31 @@
  */
 package chatclientfx;
 
+import java.net.SocketException;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
+import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SelectionMode;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.paint.Color;
+import javafx.stage.WindowEvent;
 import message.ChatConnect;
 import message.ChatConnectResponse;
 import message.ChatDisconnect;
@@ -38,21 +47,24 @@ public class FXMLDocumentController implements Initializable {
     private boolean connected;
     private String connectedUser;
     private boolean privateMessage;
+
+    @FXML
+    private ChoiceBox fontSizeChoiceBox;
+    
+    @FXML
+    private ColorPicker fontColorPicker;
     
     @FXML
     private TextField chatMessageField;
     
     @FXML
-    private TextArea chatMessageArea;
+    private ListView chatMessageArea;
     
     @FXML
     private TextField userNameField;
     
     @FXML
-    private Label sendToLabel;
-    
-    @FXML
-    private Label sendToNameLabel;
+    private TextField sendToNameField;
     
     @FXML
     private Button buttonConnect;
@@ -60,35 +72,20 @@ public class FXMLDocumentController implements Initializable {
     @FXML
     private ListView userListArea;
     
-    @FXML
-    public void handleSelectionFromUserList(MouseEvent event) {
-      
-        sendToLabel.setText("TO");
-        
-        String name = (String)userListArea.getSelectionModel().getSelectedItem();
-        
-        sendToNameLabel.setText(name);
-        
-        userListArea.getSelectionModel().clearSelection();
-        privateMessage = true;
-    }
-    
-    @FXML
-    public void clearSendToNameField(MouseEvent event) {
-        
-        sendToLabel.setText("TO ALL");
-        sendToNameLabel.setText("");
-        privateMessage = false;
-    }
-    
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-       
+        
         backEnd = null;
         backThread = null;
         connected = false;
         connectedUser = "";
         privateMessage = false;
+       
+        fontSizeChoiceBox.setItems(
+                FXCollections.observableArrayList(12,14,16,20,25));
+        fontSizeChoiceBox.setValue(12);
+        
+        fontColorPicker.setValue(Color.BLACK);
         
         userListArea.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
         
@@ -107,13 +104,20 @@ public class FXMLDocumentController implements Initializable {
         setUpClientBackEnd();
 
     }    
-   
+    
+    @FXML
+    public void exitButtonClick(ActionEvent event) {
+        backEnd.shutdown();
+        Platform.exit();
+    }
+    
     @FXML
     private void toggleConnectionOnButtonClick(ActionEvent event) {
 
         if (connected) {
             disconnectFromServer(); // first disconnect
             setUiToDisconnectedState(); // then set UI
+            showSystemMessage("Disconnected from the server.");
         } else {
             connectToServer();
             // setUiToConnectedState gets called after response
@@ -141,11 +145,15 @@ public class FXMLDocumentController implements Initializable {
                 msg.setUserName(connectedUser);
 
                 msg.setIsPrivate(privateMessage);
-                msg.setPrivateName(sendToNameLabel.getText());
+                msg.setPrivateName(sendToNameField.getText());
+
+//                String selected = (String)fontSizeChoiceBox.getSelectionModel().getSelectedItem();
                 
-                // TODO
-                msg.setFontSize(12);
-                msg.setMessageColor("#000000");
+                Integer selected = (Integer)fontSizeChoiceBox.getSelectionModel().getSelectedItem();
+                msg.setFontSize(selected.intValue());
+                
+//                msg.setFontSize(Integer.parseInt(selected));
+                msg.setMessageColor(fontColorPicker.getValue().toString());
                 
                 chatMessageField.clear();
                 
@@ -162,8 +170,137 @@ public class FXMLDocumentController implements Initializable {
      */
     public void updateMessageArea(ChatMessage msg) {
         
-        chatMessageArea.appendText(msg.getUserName()+": "+
-                msg.getChatMessage()+"\n");
+        boolean onLeft = connectedUser.equals(msg.getUserName());
+        
+        Image image = parseImageForSmiley(msg.getChatMessage());
+        
+        ChatRow newRow = new ChatRow(image,
+                msg.getChatMessage(),
+                msg.getFontFamily(),
+                msg.getFontSize(),
+                msg.getMessageColor(),
+                onLeft);
+        
+        chatMessageArea.getItems().add(newRow);
+        chatMessageArea.scrollTo(newRow);
+
+    }
+
+    /* 
+     * NOTE! smileyAsChars must match exactly with smileyAsImage
+     */
+    private String[] smileyAsChars = {
+        "[SYSTEM]",
+        ":{",
+        ":}",
+        "#(","#-(",
+        ":o)",":O)",
+        "P)","P-)",
+        ":|",":-|",
+        ":)",":-)",
+        ":(",":-(",
+        ":D",":-D",
+        ":P",":p",":-P",":-p",
+        ";)",";-)",
+        "8)","8-)",
+        "8(","8-(",
+        "8P","8p","8-P","8-p",
+        "8o","8-o",
+        "8O","8-O",
+        ":X",":x",":-X",":-x",
+        ":o",":-o",
+        ":O",":-O",
+        ":S",":s",":-S",":-s",
+        ":/",":-/",":\\",":-\\",
+        "x)","X)","x-)","X-)",
+        "x(","X(","x-(","X-(",
+        "xo","Xo","x-o","X-o","xO","XO","x-O","X-O",
+        ":*",":-*",
+        "|O","|o","|-O","|-o",
+        "B)","B-)",
+        ":.(",":,("
+    };
+    private String[] smileyAsImage = {
+        "system.png",
+        "moustach_down.png",
+        "moustach_up.png",
+        "sick.png","sick.png",
+        "clown_nose.png","clown_nose.png",
+        "pirate.png","pirate.png",
+        "neutral.png","neutral.png",
+        "happy.png","happy.png",
+        "unhappy.png","unhappy.png",
+        "laugh.png","laugh.png",
+        "tongue_out.png","tongue_out.png","tongue_out.png","tongue_out.png",
+        "wink.png","wink.png",
+        "eyes_wide_happy.png","eyes_wide_happy.png",
+        "eyes_wide_unhappy.png","eyes_wide_unhappy.png",
+        "looney.png","looney.png","looney.png","looney.png",
+        "eyes_wide_amazed.png","eyes_wide_amazed.png",
+        "eyes_wide_alarmed.png","eyes_wide_alarmed.png",
+        "mouth_shut.png","mouth_shut.png","mouth_shut.png","mouth_shut.png",
+        "amazed.png","amazed.png",
+        "alarmed.png","alarmed.png",
+        "uncertain.png","uncertain.png","uncertain.png","uncertain.png",
+        "confused.png","confused.png","confused.png","confused.png",
+        "eyes_closed_happy.png","eyes_closed_happy.png","eyes_closed_happy.png","eyes_closed_happy.png",
+        "eyes_closed_unhappy.png","eyes_closed_unhappy.png","eyes_closed_unhappy.png","eyes_closed_unhappy.png",
+        "angry_shout.png","angry_shout.png","angry_shout.png","angry_shout.png","angry_shout.png","angry_shout.png","angry_shout.png","angry_shout.png",
+        "kiss.png","kiss.png",
+        "yawn.png","yawn.png","yawn.png","yawn.png",
+        "cool.png","cool.png",
+        "sad.png","sad.png"
+    };
+    
+  
+    private Image parseImageForSmiley(String text) {
+        
+        Image image = null;
+        
+        for (int i = 0; i < smileyAsChars.length; i++) {
+            if (text.contains(smileyAsChars[i])) {
+                image = new Image("file:"+smileyAsImage[i]);
+                break; // We take the first one we found
+            }
+        }
+        
+        if (image == null) {
+            image = new Image("file:neutral.png");
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Handles selection from the connected users list. Selected user is
+     * set as a sole target of next private message(s).
+     * 
+     * @param event list was mouse clicked
+     */
+    @FXML
+    public void handleSelectionFromUserList(MouseEvent event) {
+      
+        String name = (String)userListArea.getSelectionModel().getSelectedItem();
+        // Do not allow private messages to self
+        if (name.equals(connectedUser) == false) {
+            sendToNameField.setText(name);
+            privateMessage = true;
+        }
+        userListArea.getSelectionModel().clearSelection();
+        chatMessageField.requestFocus();
+    }
+    
+    /**
+     * Mouse click on message receiver filed clears it back to default
+     * i.e. messages are sent to all connected users.
+     * 
+     * @param event filed was mouse clicked
+     */
+    @FXML
+    public void clearSendToNameField(MouseEvent event) {
+        sendToNameField.setText("");
+        privateMessage = false;
+        chatMessageField.requestFocus();
     }
     
     /**
@@ -188,10 +325,11 @@ public class FXMLDocumentController implements Initializable {
     public void updateToConnected(ChatConnectResponse msg) {
 
         setUiToConnectedState();
-        
         if (msg.isNameChanged()) {
-            showSystemMessage("Your user name "+userNameField.getText()+
-                    " changed to "+msg.getUserName());
+            showSystemMessage("Connected to the server. Your user name "+
+                    userNameField.getText()+" changed to "+msg.getUserName());
+        } else {
+            showSystemMessage("Connected to the server.");
         }
         connectedUser = msg.getUserName();
     }
@@ -211,7 +349,15 @@ public class FXMLDocumentController implements Initializable {
      * @param msg String containing the text to be shown.
      */
     public void showSystemMessage(String msg) {
-        chatMessageArea.appendText("[SYSTEM]: "+msg+"\n");
+        
+        ChatMessage sysMsg = new ChatMessage();
+        
+        sysMsg.setChatMessage("[SYSTEM]: "+msg+"\n");
+        sysMsg.setFontFamily("Helvetica");
+        sysMsg.setFontSize(12);
+        sysMsg.setMessageColor("#FF0000");
+        
+        updateMessageArea(sysMsg);
     }
     
     /**
@@ -220,13 +366,25 @@ public class FXMLDocumentController implements Initializable {
      */
     private void setUpClientBackEnd() {
         
-        backEnd = new ClientBackEnd(this); // creates connection
-        backThread = new Thread(backEnd);
-        backThread.setName("Client BET");
-        // Tell JVM this is background thread, so JVM can kill when
-        // backEnd is destroyed.
-        backThread.setDaemon(true);
-        backThread.start(); // this will eventually call backEnd's run()
+        try {
+            backEnd = new ClientBackEnd(this); // tries to create connection
+            backThread = new Thread(backEnd);
+            backThread.setName("Client BET");
+            // Tell JVM this is background thread, so JVM can kill when
+            // backEnd is destroyed.
+            backThread.setDaemon(true);
+            backThread.start(); // this will eventually call backEnd's run()
+        } catch (SocketException e) {
+            
+// PROBLEM: If this fails, currently the only way to get this working properly
+// is to restart the client and hope the server is there. So this means it
+// is not possible to start the server afterwards and just hit the connect
+// button.
+            
+            showSystemMessage("Cannot find the server, please restart!");
+            backEnd = null;
+            backThread = null;
+        }
     }
     
     /**
@@ -238,7 +396,6 @@ public class FXMLDocumentController implements Initializable {
         buttonConnect.setText("DISCONNECT");
         userNameField.setDisable(true);
         chatMessageField.setDisable(false);
-        showSystemMessage("You are now connected to the server.");
     }
     
     /**
@@ -251,7 +408,6 @@ public class FXMLDocumentController implements Initializable {
         userNameField.clear();
         userNameField.setDisable(false);
         chatMessageField.setDisable(true);
-        showSystemMessage("You are now disconnected from the server.");
     }
     
     /**
@@ -262,7 +418,11 @@ public class FXMLDocumentController implements Initializable {
      */
     private void connectToServer() {
         
-        if (connected == false) {
+// PROBLEM: The need of doing the preliminary connection to
+// avoid the null exception when connectToServer is called and
+// ChatConnect message is sent...
+        
+        if (backEnd != null && connected == false) {
            if (userNameField.getText().isEmpty() == false &&
                userNameField.getText().trim().isEmpty() == false &&
                userNameField.getText().length() <= 20) {
@@ -296,6 +456,10 @@ public class FXMLDocumentController implements Initializable {
             backEnd.sendMessage(msg); // DISCONNECT
         }
         backEnd.shutdown();
+        
+// PROBLEM: The need of doing the preliminary connection to
+// avoid the null exception when connectToServer is called and
+// ChatConnect message is sent...
         
         // Preliminary connection, ChatConnect still needed
         setUpClientBackEnd();

@@ -11,12 +11,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.concurrent.locks.Lock;
 import javafx.application.Platform;
-import message.ChatConnect;
 import message.ChatConnectResponse;
-import message.ChatDisconnect;
 
 import message.ChatMessage; // our very own library :)
 import message.ChatUserListUpdate;
@@ -29,15 +26,17 @@ public class ClientBackEnd implements Runnable {
 
     // Client <-> Server communication
     private Socket clientSocket;
-    private ObjectInputStream input;
-    private ObjectOutputStream output;
+    private ObjectInputStream input = null;
+    private ObjectOutputStream output = null;
     
     private FXMLDocumentController controller;
     
     // NOTE: This stuff is run in UI thread. Don't pass "this" anywhere
     // in constructor.
-    public ClientBackEnd(FXMLDocumentController controller) {
+    public ClientBackEnd(FXMLDocumentController controller) throws SocketException {
  
+        this.controller = controller;
+        
         try {
             // DNS name "localhost" equals inet address "127.0.0.1"
             // Note that in Java new Socket(...) immediately connects
@@ -48,12 +47,18 @@ public class ClientBackEnd implements Runnable {
                 System.out.println("CLIENT BACK: ClientBackEnd "+this+
                         " clientSocket "+clientSocket);
             }
-            
+        } catch (SocketException e) {
+            if (clientSocket != null) {
+                try {
+                    clientSocket.close();
+                } catch (IOException ex) {
+                    // Well, we tried...
+                }
+            }
+            throw e; // Pass the event to client
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        
-        this.controller = controller;
     }
     
     // NOTE: This is executed in our own thread, once this run method is called.
@@ -89,6 +94,10 @@ public class ClientBackEnd implements Runnable {
         if (ChatClientFX.TESTING) {
             System.out.println("CLIENT BACK: sendMessage "+obj.toString());
         }
+        
+// PROBLEM: output might be null if send message is called
+// immediately after the run is called. Seems that the output
+// creation takes a while...
         
         try {
             output.writeObject(obj);
