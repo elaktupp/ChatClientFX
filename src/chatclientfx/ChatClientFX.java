@@ -6,30 +6,55 @@
 package chatclientfx;
 
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 /**
  *
  * @author Ohjelmistokehitys
  */
-public class ChatClientFX extends Application {
+public class ChatClientFX extends Application  {
     
     public static final boolean TESTING = true;
     
+    public FXMLDocumentController controller;
+    
     @Override
     public void start(Stage stage) throws Exception {
-        
-        Parent root = FXMLLoader.load(getClass().getResource("FXMLDocument.fxml"));
+
+        /* NOTE!
+         *
+         * If you do it like this:
+         *
+         * FXMLLoader loader = new FXMLLoader();
+         * Parent root = loader.load(getClass().getResource("FXMLDocument.fxml"));
+         * controller = (FXMLDocumentController)loader.getController();
+         *
+         * the controller will be NULL!
+         *
+         * So it must be done like this:
+         */
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("FXMLDocument.fxml"));
+        Parent root = loader.load();
+        controller = (FXMLDocumentController)loader.getController();
+       
         Scene scene = new Scene(root);
         stage.setScene(scene);
         stage.show();
 
-// PROBLEM: Yes we can get the window exit here, but hot to tell that
-// to the FXMLDocumentController so it can shutdown properyl at the exit?
-        
+        stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+
+            @Override
+            public void handle(WindowEvent event) {
+                controller.clientCloseRequested();
+                Platform.exit();
+            }
+        });
     }
     
     /**

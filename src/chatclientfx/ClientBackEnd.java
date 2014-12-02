@@ -11,7 +11,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.concurrent.locks.Lock;
 import javafx.application.Platform;
 import message.ChatConnectResponse;
 
@@ -148,7 +147,7 @@ public class ClientBackEnd implements Runnable {
         } else {
             // Shound never happen
             System.out.println("CLIENT BACK: What was that?");
-            System.exit(1);
+            Platform.exit();
         }
         
     }
@@ -156,16 +155,17 @@ public class ClientBackEnd implements Runnable {
     public void shutdown() {
         
         if (ChatClientFX.TESTING) {
-            System.out.println("CLIENT BACK: shutdown");
+            System.out.println("CLIENT BACK: shutdown ("+output+","+input+")");
         }
         
         try {
             output.close();
             input.close();
-            clientSocket.close();
+            // clientSocket.close(); <- no need, closing stream is enough
         } catch (IOException ex) {
             // Nothing we can do...
             System.out.println("CLIENT BACK: shutdown IOException");
         }
     }
+
 }

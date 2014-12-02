@@ -5,19 +5,17 @@
  */
 package chatclientfx;
 
+import java.io.File;
 import java.net.SocketException;
 import java.net.URL;
 import java.util.ResourceBundle;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ListView;
@@ -27,9 +25,8 @@ import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
-import javafx.stage.WindowEvent;
+import javax.swing.JFileChooser;
 import message.ChatConnect;
 import message.ChatConnectResponse;
 import message.ChatDisconnect;
@@ -47,7 +44,17 @@ public class FXMLDocumentController implements Initializable {
     private boolean connected;
     private String connectedUser;
     private boolean privateMessage;
-
+    private File fileToTransfer;
+    
+    @FXML
+    private CheckBox testChatRow;
+    
+    @FXML
+    private Button buttonSendFile;
+    
+    @FXML
+    private TextField fileToSendField;
+    
     @FXML
     private ChoiceBox fontSizeChoiceBox;
     
@@ -74,6 +81,8 @@ public class FXMLDocumentController implements Initializable {
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
+        
+        buttonSendFile.setDisable(true);
         
         backEnd = null;
         backThread = null;
@@ -106,11 +115,14 @@ public class FXMLDocumentController implements Initializable {
     }    
     
     @FXML
-    public void exitButtonClick(ActionEvent event) {
-        backEnd.shutdown();
-        Platform.exit();
+    public void sendButtonClick(ActionEvent event) {
+        
+        showSystemMessage("NOT IMPLEMENTED!");
+        fileToSendField.clear();
+        chatMessageField.requestFocus();
+
     }
-    
+   
     @FXML
     private void toggleConnectionOnButtonClick(ActionEvent event) {
 
@@ -139,6 +151,18 @@ public class FXMLDocumentController implements Initializable {
         
         if (event.getCode() == KeyCode.ENTER) {
             String messageText = chatMessageField.getText();
+
+            // In case we have a file to send we accept empty
+            // message text, but add there the file name
+            if (fileToTransfer != null) {
+                if (messageText.isEmpty()) {
+                    messageText += "("+fileToTransfer.getName()+")";
+                } else {
+                    messageText += " ("+fileToTransfer.getName()+")";
+                }
+                fileToSendField.clear();
+            }
+            
             if (messageText.isEmpty() == false) {
                 ChatMessage msg = new ChatMessage();
                 msg.setChatMessage(messageText);
@@ -147,18 +171,16 @@ public class FXMLDocumentController implements Initializable {
                 msg.setIsPrivate(privateMessage);
                 msg.setPrivateName(sendToNameField.getText());
 
-//                String selected = (String)fontSizeChoiceBox.getSelectionModel().getSelectedItem();
-                
                 Integer selected = (Integer)fontSizeChoiceBox.getSelectionModel().getSelectedItem();
-                msg.setFontSize(selected.intValue());
+                msg.setFontSize(selected);
                 
-//                msg.setFontSize(Integer.parseInt(selected));
                 msg.setMessageColor(fontColorPicker.getValue().toString());
                 
                 chatMessageField.clear();
                 
                 backEnd.sendMessage(msg);
             }
+
         }
     }
     
@@ -174,13 +196,24 @@ public class FXMLDocumentController implements Initializable {
         
         Image image = parseImageForSmiley(msg.getChatMessage());
         
-        ChatRow newRow = new ChatRow(image,
-                msg.getChatMessage(),
-                msg.getFontFamily(),
-                msg.getFontSize(),
-                msg.getMessageColor(),
-                onLeft);
+        ChatRow newRow;
         
+        if (testChatRow.isSelected()) {
+            // Smileys mixed to text, NOT WORKING PROPERLY
+            newRow = new ChatRow(msg.getChatMessage(),
+                    msg.getFontFamily(),
+                    msg.getFontSize(),
+                    msg.getMessageColor()); 
+        } else {
+        
+            newRow = new ChatRow(image,
+                    msg.getChatMessage(),
+                    msg.getFontFamily(),
+                    msg.getFontSize(),
+                    msg.getMessageColor(),
+                    onLeft);
+        }
+
         chatMessageArea.getItems().add(newRow);
         chatMessageArea.scrollTo(newRow);
 
@@ -301,6 +334,38 @@ public class FXMLDocumentController implements Initializable {
         sendToNameField.setText("");
         privateMessage = false;
         chatMessageField.requestFocus();
+    }
+    
+    @FXML
+    public void selectFileToSend(MouseEvent event) {
+        
+        JFileChooser fileSelect = new JFileChooser();
+       
+        switch (fileSelect.showOpenDialog(null)) {
+            case JFileChooser.APPROVE_OPTION:
+                fileToTransfer = fileSelect.getSelectedFile();
+                fileToSendField.setText(fileToTransfer.getName());
+                buttonSendFile.setDisable(false);
+                chatMessageField.requestFocus();
+                break;
+            case JFileChooser.CANCEL_OPTION:
+                // flow through
+            default:
+                fileToTransfer = null;
+                fileToSendField.clear();
+                buttonSendFile.setDisable(true);
+                chatMessageField.requestFocus();
+                break;
+        }
+
+    }
+    
+    /**
+     * Should be called when the client window close is requested.
+     * Disconnects from the server and shutsdown the client back end.
+     */
+    public void clientCloseRequested() {
+        disconnectFromServer();
     }
     
     /**
@@ -441,6 +506,7 @@ public class FXMLDocumentController implements Initializable {
                userNameField.requestFocus();
            }
         }
+
     }
     
     /**
@@ -464,4 +530,5 @@ public class FXMLDocumentController implements Initializable {
         // Preliminary connection, ChatConnect still needed
         setUpClientBackEnd();
     }
+
 }
